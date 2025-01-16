@@ -1,31 +1,27 @@
 # Angular Change Detection Guide
-
-This guide provides a practical overview of Angular change detection mechanisms, illustrated with real-world examples from the ThriveDesk frontend application.
+_Based on Real-World Examples from ThriveDesk Frontend_
 
 ## Core Concepts
 
-Angular's change detection system efficiently keeps the component view synchronized with the underlying data model. It automatically detects changes in various scenarios:
+### When Change Detection Happens Automatically
+- **HTTP/XHR Requests**
+- **User Events** (click, input, etc.)
+- **Timers** (`setTimeout`, `setInterval`)
+- **Promise resolutions**
+- **Observable emissions** from Angular's built-in features
 
-* **HTTP/XHR Requests:** When an HTTP request resolves, Angular triggers change detection to update the component view with the fetched data.
-* **User Events (click, input, etc.):** User interactions like clicks, form input, and button presses trigger change detection to reflect the changes in the view.
-* **Timers (setTimeout/setInterval):** When timer callbacks from `setTimeout` or `setInterval` functions are invoked, Angular triggers change detection to update the view accordingly.
-* **Promise resolutions:** Asynchronous operations initiated using Promises trigger change detection upon resolution.
-* **Observable emissions from Angular's built-in features:** Observables emitted by Angular services or directives can trigger change detection when subscribed to within a component.
+### When Manual Change Detection is Needed
+- **WebSocket Events**
+- **Third-party Library Callbacks**
+- **External API Events**
+- **Manual Property Updates Outside Zone.js**
 
-## When Manual Change Detection is Needed
-
-While Angular automates change detection in most cases, manual intervention is necessary in specific scenarios:
-
-* **WebSocket Events:** Real-time updates received via WebSockets don't automatically trigger change detection. You need to call the `detectChanges` method on the component's `ChangeDetectorRef` to update the view manually.
-* **Third-party Library Callbacks:** Callbacks from external libraries that are not integrated with Angular's change detection mechanism might require manual `detectChanges` calls.
-* **External API Events:** Events emitted from external APIs that are not part of Angular's framework might necessitate manual change detection.
-* **Manual Property Updates Outside Zone.js:** If you directly modify component properties outside of Angular's Zone.js context, you might need to trigger change detection manually.
+---
 
 ## Real Examples from ThriveDesk
 
-The following examples from the ThriveDesk codebase illustrate scenarios where manual change detection is required:
-
-**WebSocket Scenarios (Need detectChanges)**
+### WebSocket Scenarios (Need `detectChanges()`)
+- **Real-time updates via WebSocket**
 
 ```typescript
 websocketService.onReady((bus) => {
@@ -34,3 +30,79 @@ websocketService.onReady((bus) => {
     this.cdr.detectChanges(); // Required
   });
 });
+```
+
+### Loading State Updates (Need `detectChanges()`)
+- **From `thread-actions.component.ts`**
+
+```typescript
+sendReply(): void {
+  this.isSaving = true;
+  this.changeDetectorRef.detectChanges(); // Required for immediate UI feedback
+}
+```
+
+### Active Inbox Changes (Need `detectChanges()`)
+- **From `header.component.ts`**
+
+```typescript
+this.activeInboxSub = this.inboxService.activeInboxUpdate.subscribe((inbox) => {
+  this.activeInbox = inbox;
+  this.selectedInboxId = inbox.id;
+  this.cdr.detectChanges(); // Required for critical UI updates
+});
+```
+
+### HTTP Calls (No `detectChanges()` Needed)
+- **From `create-conversation.component.ts`**
+
+```typescript
+this.contactService.load(1, value).subscribe(({ contacts }) => {
+  this.recipients = contacts.map(c => ({
+    value: c.email,
+    label: `${c.name} <${c.email}>`
+  }));
+  // No detectChanges needed - Angular handles HTTP responses
+});
+```
+
+---
+
+## Quick Decision Guide
+
+### Use `detectChanges()` When:
+- Real-time WebSocket updates
+- Loading state changes before async operations
+- Critical UI updates that need immediate reflection
+- External library callbacks
+- Manual property updates that need instant UI reflection
+
+### Skip `detectChanges()` When:
+- HTTP calls
+- User interactions (clicks, inputs)
+- Angular form updates
+- Router navigation
+- Regular Observable emissions from Angular services
+
+---
+
+## Performance Tips
+- **Use OnPush strategy** for components with infrequent updates
+- **Batch multiple changes** before calling `detectChanges()`
+- Consider using `markForCheck()` with OnPush strategy
+- Avoid calling `detectChanges()` in loops
+- **Use async pipe** where possible to avoid manual subscription management
+
+---
+
+## Common Patterns in ThriveDesk
+- WebSocket services require `detectChanges()`
+- HTTP service calls don't need `detectChanges()`
+- Loading state updates need `detectChanges()`
+- List updates from HTTP don't need `detectChanges()`
+- Real-time presence updates need `detectChanges()`
+
+---
+
+This guide serves as a practical reference for Angular change detection implementation based on real-world scenarios from the ThriveDesk codebase.
+```
